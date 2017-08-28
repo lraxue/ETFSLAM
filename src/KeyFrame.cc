@@ -36,7 +36,7 @@ namespace ORB_SLAM2
             fx(F.fx), fy(F.fy), cx(F.cx), cy(F.cy), invfx(F.invfx), invfy(F.invfy),
             mbf(F.mbf), mb(F.mb), mThDepth(F.mThDepth), N(F.N), mvKeysLeft(F.mvKeysLeft), mvKeysRight(F.mvKeysRight),
             mvuRight(F.mvuRight), mvDepth(F.mvDepth), mDescriptorsLeft(F.mDescriptorsLeft.clone()),
-            mDescriptorRight(F.mDescriptorsRight.clone()),
+            mDescriptorRight(F.mDescriptorsRight.clone()), mvpTriangles(F.mvpTriangles),
             mBowVec(F.mBowVec), mFeatVec(F.mFeatVec), mnScaleLevels(F.mnScaleLevels), mfScaleFactor(F.mfScaleFactor),
             mfLogScaleFactor(F.mfLogScaleFactor), mvScaleFactors(F.mvScaleFactors), mvLevelSigma2(F.mvLevelSigma2),
             mvInvLevelSigma2(F.mvInvLevelSigma2), mnMinX(F.mnMinX), mnMinY(F.mnMinY), mnMaxX(F.mnMaxX),

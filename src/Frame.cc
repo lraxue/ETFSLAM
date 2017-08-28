@@ -22,6 +22,8 @@
 #include "Converter.h"
 #include "ORBmatcher.h"
 #include <thread>
+#include <glog/logging.h>
+#include <monitor/Monitor.h>
 
 namespace ORB_SLAM2
 {
@@ -48,7 +50,8 @@ namespace ORB_SLAM2
               mpReferenceKF(frame.mpReferenceKF), mnScaleLevels(frame.mnScaleLevels),
               mfScaleFactor(frame.mfScaleFactor), mfLogScaleFactor(frame.mfLogScaleFactor),
               mvScaleFactors(frame.mvScaleFactors), mvInvScaleFactors(frame.mvInvScaleFactors),
-              mvLevelSigma2(frame.mvLevelSigma2), mvInvLevelSigma2(frame.mvInvLevelSigma2)
+              mvLevelSigma2(frame.mvLevelSigma2), mvInvLevelSigma2(frame.mvInvLevelSigma2),
+              mRGBLeft(frame.mRGBLeft.clone()), mRGBRight(frame.mRGBRight.clone())
     {
         for (int i = 0; i < FRAME_GRID_COLS; i++)
             for (int j = 0; j < FRAME_GRID_ROWS; j++)
@@ -77,6 +80,17 @@ namespace ORB_SLAM2
         mvInvScaleFactors = mpORBextractorLeft->GetInverseScaleFactors();
         mvLevelSigma2 = mpORBextractorLeft->GetScaleSigmaSquares();
         mvInvLevelSigma2 = mpORBextractorLeft->GetInverseScaleSigmaSquares();
+
+        if (imLeft.channels() == 1)
+        {
+            cv::cvtColor(imLeft, mRGBLeft, CV_GRAY2RGB);
+            cv::cvtColor(imRight, mRGBRight, CV_GRAY2RGB);
+        }
+        else
+        {
+            mRGBLeft = imLeft.clone();
+            mRGBRight = imRight.clone();
+        }
 
         // ORB extraction
         thread threadLeft(&Frame::ExtractORB, this, 0, imLeft);
@@ -578,6 +592,10 @@ namespace ORB_SLAM2
         cv::Mat Cr = (cv::Mat_<float>(3, 1) << mb, 0.f, 0.f);
 
         const float z = mvDepth[idx];
+
+        if (z < 0)
+            return static_cast<EpipolarTriangle*>(NULL);    // valid depth
+
         const float u = mvKeysLeft[idx].pt.x;
         const float v = mvKeysLeft[idx].pt.y;
 
@@ -609,6 +627,8 @@ namespace ORB_SLAM2
                 nValidET++;
 
                 mvpTriangles[i] = pET;
+
+//                LOG(INFO) << i << " " << pET->mDepth << " " << pET->mFusedUncertainty;
             }
         }
         return nValidET;
@@ -659,6 +679,179 @@ namespace ORB_SLAM2
         }
 
         return total_error / cnt;
+    }
+
+
+    void Frame::Record(const bool bShowKeys, const bool bShowUncertainty, const bool bShowMatch)
+    {
+        cv::Mat mMatchImg;
+        cv::Mat mKeysImg;
+
+        cv::Mat mUFeatureImg;
+        cv::Mat mUSpatioImg;
+        cv::Mat mUAngleImg;
+        cv::Mat mUFuseImg;
+
+
+        std::vector<cv::KeyPoint> vMatchedKeysLeft;
+        std::vector<cv::KeyPoint> vMatchedKeysRight;
+        std::vector<cv::KeyPoint> vMatchedKeysRightModifiied;
+
+        std::vector<float> vUncertaintyResponse;
+        std::vector<float> vUncertaintySpatio;
+        std::vector<float> vUncertaintyAngle;
+        std::vector<float> vFuseUncertainty;
+
+        std::vector<std::pair<float, int> > vRawUR;
+        std::vector<std::pair<float, int> > vRawUS;
+        std::vector<std::pair<float, int> > vRawUA;
+        std::vector<std::pair<float, int> > vUFuse;
+
+        int nMatchedPoints = 0;
+        for (int i = 0; i < N; ++i)
+        {
+            if (mvMatches[i] < 0)
+                continue;
+
+            EpipolarTriangle* pTr = mvpTriangles[i];
+
+            vMatchedKeysLeft.push_back(mvKeysLeft[i]);
+            vMatchedKeysRight.push_back(mvKeysRight[mvMatches[i]]);
+
+            const float& uR = pTr->mResponse;
+            const float& uS = pTr->mSpatioRatio;
+            const float& uA = pTr->mAngleRatio;
+            const float& uFuse = pTr->mFusedUncertainty;
+
+            vRawUR.push_back(std::make_pair(uR, i));
+            vRawUS.push_back(std::make_pair(uS, i));
+            vRawUA.push_back(std::make_pair(uA, i));
+            vUFuse.push_back(std::make_pair(uFuse, i));
+
+            nMatchedPoints++;
+        }
+
+        std::sort(vRawUA.begin(), vRawUA.end());
+        std::sort(vRawUR.begin(), vRawUR.end());
+        std::sort(vRawUS.begin(), vRawUS.end());
+        std::sort(vUFuse.begin(), vUFuse.end());
+
+
+        std::vector<cv::KeyPoint> vMatchedKeysLeftR;
+        std::vector<cv::KeyPoint> vMatchedKeysRightR;
+        std::vector<cv::KeyPoint> vMatchedKeysLeftA;
+        std::vector<cv::KeyPoint> vMatchedKeysRightA;
+        std::vector<cv::KeyPoint> vMatchedKeysLeftS;
+        std::vector<cv::KeyPoint> vMatchedKeysRightS;
+        std::vector<cv::KeyPoint> vMatchedKeysLeftFuse;
+        std::vector<cv::KeyPoint> vMatchedKeysRightFuse;
+
+        int nMatchedKeys = 0;
+
+        for (int i = 0; i < 200; ++i)
+        {
+            int nReverseI = nMatchedPoints - i - 1;
+            vUncertaintyResponse.push_back(vRawUR[nReverseI].first);
+            int idxF = vRawUR[nReverseI].second;
+            vMatchedKeysLeftR.push_back(mvKeysLeft[idxF]);
+            vMatchedKeysRightR.push_back(mvKeysRight[mvMatches[idxF]]);
+
+            vUncertaintyAngle.push_back(vRawUA[nReverseI].first);
+            int idxA = vRawUA[nReverseI].second;
+            vMatchedKeysLeftA.push_back(mvKeysLeft[idxA]);
+            vMatchedKeysRightA.push_back(mvKeysRight[mvMatches[idxA]]);
+
+            vUncertaintySpatio.push_back(vRawUS[i].first);
+            int idxS = vRawUS[i].second;
+            vMatchedKeysLeftS.push_back(mvKeysLeft[idxS]);
+            vMatchedKeysRightS.push_back(mvKeysRight[mvMatches[idxS]]);
+
+            vFuseUncertainty.push_back(vUFuse[nReverseI].first);
+            int idxFuse = vRawUA[nReverseI].second;
+            vMatchedKeysLeftFuse.push_back(mvKeysLeft[idxFuse]);
+            vMatchedKeysRightFuse.push_back(mvKeysRight[mvMatches[idxFuse]]);
+
+            const float response = vUncertaintyResponse[nMatchedKeys];
+            const float spatio = vUncertaintySpatio[nMatchedKeys];
+            const float angle = vUncertaintyAngle[nMatchedKeys];
+            const float fuse = vFuseUncertainty[nMatchedKeys];
+
+            LOG(INFO) << "Frame: " << mnId <<
+                      " Response: " << response << " "
+                      << "Spatio: " << spatio << " "
+                      << "Angle: " << angle << " "
+                      << "Fuse: " << fuse;
+
+            nMatchedKeys++;
+        }
+
+        if (bShowKeys)
+        {
+            Monitor::DrawKeyPointsOnStereoFrame(mRGBLeft, mRGBRight, vMatchedKeysLeft, vMatchedKeysRight, mKeysImg);
+        }
+
+        if (bShowMatch)
+        {
+            Monitor::DrawMatchesBetweenTwoImages(mRGBLeft, mRGBRight, vMatchedKeysLeft, vMatchedKeysRight, mMatchImg);
+        }
+
+        if (bShowUncertainty)
+        {
+            Monitor::DrawPointsWithUncertaintyByRadius(mRGBLeft, mRGBRight,
+                                                       vMatchedKeysLeftR, vMatchedKeysRightR,
+                                                       mUFeatureImg, vUncertaintyResponse, std::vector<float>(), true,
+                                                       cv::Scalar(0, 0, 255));
+
+            Monitor::DrawPointsWithUncertaintyByRadius(mRGBLeft, mRGBRight,
+                                                       vMatchedKeysLeftS, vMatchedKeysRightS,
+                                                       mUSpatioImg, vUncertaintySpatio, std::vector<float>(), true,
+                                                       cv::Scalar(255, 0, 0));
+
+            Monitor::DrawPointsWithUncertaintyByRadius(mRGBLeft, mRGBRight,
+                                                       vMatchedKeysLeftA, vMatchedKeysRightA,
+                                                       mUAngleImg, vUncertaintyAngle, std::vector<float>(), true,
+                                                       cv::Scalar(0, 97, 255));
+
+            Monitor::DrawPointsWithUncertaintyByRadius(mRGBLeft, mRGBRight,
+                                                       vMatchedKeysLeftFuse, vMatchedKeysRightFuse, mUFuseImg,
+                                                       vFuseUncertainty, std::vector<float>(), true,
+                                                       cv::Scalar(0, 255, 255));
+        }
+
+        string strId = to_string(mnId);
+
+        if (!mKeysImg.empty())
+        {
+            cv::imshow("keys_" + strId, mKeysImg);
+        }
+
+        if (!mMatchImg.empty())
+        {
+            cv::imshow("match_" + strId, mMatchImg);
+        }
+
+        if (!mUFeatureImg.empty())
+        {
+            cv::imshow("response_" + strId, mUFeatureImg);
+        }
+
+        if (!mUAngleImg.empty())
+        {
+            cv::imshow("angle_" + strId, mUAngleImg);
+        }
+
+        if (!mUSpatioImg.empty())
+        {
+            cv::imshow("spatio_" + strId, mUSpatioImg);
+        }
+
+        if (!mUFuseImg.empty())
+        {
+            cv::imshow("fuse_" + strId, mUFuseImg);
+        }
+
+        cv::waitKey(0);
+
     }
 
 } //namespace ORB_SLAM

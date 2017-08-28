@@ -26,6 +26,7 @@
 #include <pangolin/pangolin.h>
 #include <iomanip>
 #include <unistd.h>
+#include <glog/logging.h>
 
 namespace ORB_SLAM2
 {
@@ -64,7 +65,15 @@ namespace ORB_SLAM2
         cout << endl << "Loading ORB Vocabulary. This could take a while..." << endl;
 
         mpVocabulary = new ORBVocabulary();
-        bool bVocLoad = mpVocabulary->loadFromTextFile(strVocFile);
+        string::size_type pos = strVocFile.rfind('.');
+        string ext = strVocFile.substr(pos == string::npos ? strVocFile.length() : pos + 1);
+
+//        LOG(INFO) << "ext: " << ext;
+        bool bVocLoad = false;
+        if (ext == "txt")
+            bVocLoad = mpVocabulary->loadFromTextFile(strVocFile);
+        else if (ext == "bin")
+            bVocLoad = mpVocabulary->loadFromBinaryFile(strVocFile);
         if (!bVocLoad)
         {
             cerr << "Wrong path to vocabulary. " << endl;
@@ -90,11 +99,11 @@ namespace ORB_SLAM2
 
         //Initialize the Local Mapping thread and launch
         mpLocalMapper = new LocalMapping(mpMap, mSensor == MONOCULAR);
-        mptLocalMapping = new thread(&ORB_SLAM2::LocalMapping::Run, mpLocalMapper);
+//        mptLocalMapping = new thread(&ORB_SLAM2::LocalMapping::Run, mpLocalMapper);
 
         //Initialize the Loop Closing thread and launch
         mpLoopCloser = new LoopClosing(mpMap, mpKeyFrameDatabase, mpVocabulary, mSensor != MONOCULAR);
-        mptLoopClosing = new thread(&ORB_SLAM2::LoopClosing::Run, mpLoopCloser);
+//        mptLoopClosing = new thread(&ORB_SLAM2::LoopClosing::Run, mpLoopCloser);
 
         //Initialize the Viewer thread and launch
         if (bUseViewer)

@@ -11,7 +11,7 @@ using namespace std;
 
 namespace ORB_SLAM2
 {
-    const string strVocFile = "../Vocabulary/ORBvoc.txt";
+    const string strVocFile = "../Vocabulary/ORBvoc.bin";
     const string ProjectPath = "/home/feixue/Research/Code/SLAM/SSLAM/";
     const string strSettingFilePKUDesk = "Stereo/pku-desk.yaml";
     const string strImagePathPKUDesk = "/home/feixue/Research/Dataset/data/Desk/images/02/";

@@ -30,6 +30,7 @@
 #include <utils.h>
 #include<System.h>
 #include <include/Values.h>
+#include <include/Config.h>
 
 using namespace ORB_SLAM2;
 using namespace std;
@@ -50,6 +51,7 @@ int main()
 
     const int nImages = vstrImageLeft.size();
 
+    Config::LoadParameters(settingFile);
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
     System SLAM(vocFile, settingFile, System::STEREO, true);
 
@@ -59,7 +61,7 @@ int main()
 
     cout << endl << "-------" << endl;
     cout << "Start processing sequence ..." << endl;
-    cout << "Images in the sequence: " << nImages << endl << endl;   
+    cout << "Images in the sequence: " << nImages << endl << endl;
 
     // Main loop
     int nEnd = nImages;

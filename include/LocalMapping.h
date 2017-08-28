@@ -72,6 +72,9 @@ public:
         return mlNewKeyFrames.size();
     }
 
+    // TODO
+    void ProcessKeyFrame();
+
 protected:
 
     bool CheckNewKeyFrames();

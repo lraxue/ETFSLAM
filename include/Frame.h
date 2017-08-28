@@ -113,6 +113,8 @@ namespace ORB_SLAM2
 
         float ComputeReprojectionError(bool bStereo = true);
 
+        void Record(const bool bShowKeys, const bool bShowUncertainty, const bool bShowMatch);
+
     public:
         // Vocabulary used for relocalization.
         ORBVocabulary *mpORBvocabulary;
@@ -206,6 +208,9 @@ namespace ORB_SLAM2
 
         static bool mbInitialComputations;
 
+
+        // For visualization and debugging
+        cv::Mat mRGBLeft, mRGBRight;
 
     private:
 

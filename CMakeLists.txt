@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8)
-project(SSLAM)
+project(ETFSLAM)
 
 IF (NOT CMAKE_BUILD_TYPE)
     SET(CMAKE_BUILD_TYPE Release)
@@ -43,6 +43,7 @@ find_package(glog REQUIRED)
 include_directories(
         ${PROJECT_SOURCE_DIR}
         ${PROJECT_SOURCE_DIR}/include
+        ${PROJECT_SOURCE_DIR}/monitor
         ${EIGEN3_INCLUDE_DIR}
         ${Pangolin_INCLUDE_DIRS}
 )
@@ -71,7 +72,7 @@ add_executable(${PROJECT_NAME}
         src/Viewer.cc
         src/EpipolarTriangle.cpp
         Examples/Stereo/Main.cpp
-        src/Config.cpp include/Values.h)
+        src/Config.cpp include/Values.h monitor/Monitor.cpp)
 
 target_link_libraries(${PROJECT_NAME}
         ${OpenCV_LIBS}
