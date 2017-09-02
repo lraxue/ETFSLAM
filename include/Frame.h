@@ -113,6 +113,8 @@ namespace ORB_SLAM2
 
         float ComputeReprojectionError(bool bStereo = true);
 
+        void ComputeUncertainty();
+
         void Record(const bool bShowKeys, const bool bShowUncertainty, const bool bShowMatch);
 
     public:
@@ -170,8 +172,18 @@ namespace ORB_SLAM2
         // MapPoints associated to keypoints, NULL pointer if no association.
         std::vector<MapPoint *> mvpMapPoints;
 
+        //--------------------------------------------------------//
         // Epipolar triangles associated to keypoints, NULL pointer if no association
         std::vector<EpipolarTriangle*> mvpTriangles;
+
+        static float mDepthTheta;
+        static float mSpatioTheta;
+        static float alphaR, alphaD, alphaS;
+        std::vector<float> mvResponseRatio;
+        std::vector<float> mvSpatioRatio;
+        std::vector<float> mvDepthRatio;
+        std::vector<float> mvFusedUncertainty;
+        //--------------------------------------------------------//
 
         // Flag to identify outlier associations.
         std::vector<bool> mvbOutlier;

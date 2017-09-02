@@ -36,11 +36,26 @@ using namespace ORB_SLAM2;
 using namespace std;
 
 
-int main()
+int main(int argc, char** argv)
 {
-    const string settingFile = strSettingFileKitti00_02;
+    if (argc !=2)
+    {
+        LOG(ERROR) << "./ETFSLAM dataset";
+        return -1;
+    }
+
+    int settingId[] = {0, 0, 0, 1, 2, 2, 2, 2, 2, 2, 2};
+    int loopI = std::stoi(std::string(argv[1]));
+
+    LOG(INFO) << "Process dataset " << loopI;
+
+    int nKittiImageIdx = 10;
+    int nKittiSettingIdx = 2;
+    const string settingFile = strKittiSettingPaths[settingId[loopI]]; // nKittiSettingIdx
     const string vocFile = strVocFile;
-    const string imagePath = strImagePathKITTI00;
+    const string imagePath = strKittiImagePaths[loopI]; // nKittiImageIdx
+    const string ETFResultPath = "./etf_results/";
+    const string ORBResultPath = "./orb_results/";
 
     // Retrieve paths to images
     vector<string> vstrImageLeft;
@@ -53,27 +68,27 @@ int main()
 
     Config::LoadParameters(settingFile);
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
-    System SLAM(vocFile, settingFile, System::STEREO, true);
+    System SLAM(vocFile, settingFile, System::STEREO, false);
 
     // Vector for tracking time statistics
     vector<float> vTimesTrack;
     vTimesTrack.resize(nImages);
 
-    cout << endl << "-------" << endl;
-    cout << "Start processing sequence ..." << endl;
-    cout << "Images in the sequence: " << nImages << endl << endl;
+    cout << "Process dataset " << loopI << " -------" << endl;
+//    cout << "Start processing sequence ..." << endl;
+//    cout << "Images in the sequence: " << nImages << endl << endl;
 
     // Main loop
     int nEnd = nImages;
     cv::Mat imLeft, imRight;
-    for(int ni=0; ni<nEnd; ni++)
+    for (int ni = 0; ni < nEnd; ni++)
     {
         // Read left and right images from file
-        imLeft = cv::imread(vstrImageLeft[ni],CV_LOAD_IMAGE_UNCHANGED);
-        imRight = cv::imread(vstrImageRight[ni],CV_LOAD_IMAGE_UNCHANGED);
+        imLeft = cv::imread(vstrImageLeft[ni], CV_LOAD_IMAGE_UNCHANGED);
+        imRight = cv::imread(vstrImageRight[ni], CV_LOAD_IMAGE_UNCHANGED);
         double tframe = vTimestamps[ni];
 
-        if(imLeft.empty())
+        if (imLeft.empty())
         {
             cerr << endl << "Failed to load image at: "
                  << string(vstrImageLeft[ni]) << endl;
@@ -81,7 +96,9 @@ int main()
         }
 
         // Pass the images to the SLAM system
-        SLAM.TrackStereo(imLeft,imRight,tframe);
+        SLAM.TrackStereo(imLeft, imRight, tframe);
+
+//        cout << endl;
 
     }
 
@@ -89,8 +106,9 @@ int main()
     SLAM.Shutdown();
 
     // Save camera trajectory
-    // SLAM.SaveTrajectoryKITTI("CameraTrajectory.txt");
-    SLAM.SaveMap("map_kitti_00.txt");
+//    SLAM.SaveTrajectoryKITTI("Uncertainty_Kitti_00.txt");
+//    SLAM.SaveMap("map_kitti_00.txt");
+    SLAM.SaveTrajectoryTUM(ETFResultPath + strETFResults[loopI]); // nKittiImageIdx
 
     return 0;
 }

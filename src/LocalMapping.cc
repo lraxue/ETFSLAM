@@ -134,7 +134,7 @@ namespace ORB_SLAM2
             mpCurrentKeyFrame = mlNewKeyFrames.front();
             mlNewKeyFrames.pop_front();
 
-            LOG(INFO) << "Process KeyFrame " << mpCurrentKeyFrame->mnId;
+//            LOG(INFO) << "Process KeyFrame " << mpCurrentKeyFrame->mnId;
         }
 
         // Compute Bags of Words structures

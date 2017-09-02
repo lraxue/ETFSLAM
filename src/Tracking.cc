@@ -201,14 +201,13 @@ namespace ORB_SLAM2
         mCurrentFrame = Frame(mImGray, imGrayRight, timestamp, mpORBextractorLeft, mpORBextractorRight, mpORBVocabulary,
                               mK, mDistCoef, mbf, mThDepth);
 
-        LOG(INFO) << "Track Frame " << mCurrentFrame.mnId << " starts.";
+//        LOG(INFO) << "Track Frame " << mCurrentFrame.mnId << " starts.";
 
         // mCurrentFrame.Record(true, true, true);
 
         Track();
 
-        LOG(INFO) << "Track Frame " << mCurrentFrame.mnId << " finished.";
-        cout << endl;
+//        LOG(INFO) << "Track Frame " << mCurrentFrame.mnId << " finished.";
 
         return mCurrentFrame.mTcw.clone();
     }
@@ -440,9 +439,9 @@ namespace ORB_SLAM2
                 mlpTemporalPoints.clear();
 
                 // Check if we need to insert a new keyframe
-//                if (NeedNewKeyFrame())
-//                    CreateNewKeyFrame();
-                CreateNewKeyFrameOnStereo();   // Each Frame will be a KeyFrame
+                if (NeedNewKeyFrame())
+                    CreateNewKeyFrame();
+//                CreateNewKeyFrameOnStereo();   // Each Frame will be a KeyFrame
 
                 // We allow points with high innovation (considererd outliers by the Huber Function)
                 // pass to the new keyframe, so that bundle adjustment will finally decide
@@ -527,7 +526,7 @@ namespace ORB_SLAM2
             cout << "New map created with " << mpMap->MapPointsInMap() << " points" << endl;
 
             mpLocalMapper->InsertKeyFrame(pKFini);
-            mpLocalMapper->ProcessKeyFrame();
+//            mpLocalMapper->ProcessKeyFrame();
 
             mLastFrame = Frame(mCurrentFrame);
             mnLastKeyFrameId = mCurrentFrame.mnId;
@@ -789,7 +788,7 @@ namespace ORB_SLAM2
 
     void Tracking::UpdateLastFrame()
     {
-        LOG(INFO) << "UpdateLAstFrame.";
+//        LOG(INFO) << "UpdateLastFrame.";
 
         // Update pose according to reference keyframe
         KeyFrame *pRef = mLastFrame.mpReferenceKF;
@@ -1070,6 +1069,9 @@ namespace ORB_SLAM2
             // We sort points by the measured depth by the stereo/RGBD sensor.
             // We create all those MapPoints whose depth < mThDepth.
             // If there are less than 100 close points we create the 100 closest.
+
+
+            /*
             vector<pair<float, int> > vDepthIdx;
             vDepthIdx.reserve(mCurrentFrame.N);
             for (int i = 0; i < mCurrentFrame.N; i++)
@@ -1123,6 +1125,74 @@ namespace ORB_SLAM2
                         break;
                 }
             }
+
+             */
+
+           std::vector<std::pair<float, int> > vWeightIdx;
+           for (int i = 0; i < mCurrentFrame.N; ++i)
+           {
+               const float uncertainty = mCurrentFrame.mvFusedUncertainty[i];
+               if (uncertainty > 0)
+                   vWeightIdx.push_back(std::make_pair(uncertainty, i));
+           }
+
+           if (!vWeightIdx.empty())
+           {
+               sort(vWeightIdx.begin(), vWeightIdx.end());
+
+               fstream file("used_uncertainty.txt", ios::in | ios::app);
+               if (!file.is_open())
+               {
+                   LOG(ERROR) << "Open used_uncertainty file error.";
+                   exit(-1);
+               }
+
+               int nPoints = 0;
+               int nW = vWeightIdx.size();
+               for (size_t j = 0; j < vWeightIdx.size(); j++)
+               {
+                   int i = vWeightIdx[nW - j - 1].second;
+
+                   bool bCreateNew = false;
+
+                   MapPoint *pMP = mCurrentFrame.mvpMapPoints[i];
+                   if (!pMP)
+                       bCreateNew = true;
+                   else if (pMP->Observations() < 1)
+                   {
+                       bCreateNew = true;
+                       mCurrentFrame.mvpMapPoints[i] = static_cast<MapPoint *>(NULL);
+                   }
+
+                   if (bCreateNew)
+                   {
+                       cv::Mat x3D = mCurrentFrame.UnprojectStereo(i);
+                       MapPoint *pNewMP = new MapPoint(x3D, pKF, mpMap);
+                       pNewMP->AddObservation(pKF, i);
+                       pKF->AddMapPoint(pNewMP, i);
+                       pNewMP->ComputeDistinctiveDescriptors();
+                       pNewMP->UpdateNormalAndDepth();
+                       mpMap->AddMapPoint(pNewMP);
+
+                       mCurrentFrame.mvpMapPoints[i] = pNewMP;
+                       nPoints++;
+
+                       file << mCurrentFrame.mnId << " " << mCurrentFrame.mvResponseRatio[i] << " "
+                            << mCurrentFrame.mvSpatioRatio[i] << " " << mCurrentFrame.mvDepthRatio[i] << " "
+                            << mCurrentFrame.mvFusedUncertainty[i] << endl;
+                   }
+                   else
+                   {
+                       nPoints++;
+                   }
+
+                   if ( nPoints > 100) // vDepthIdx[j].first > mThDepth && vWeightIdx[j].first < 0.8 &&
+                       break;
+               }
+
+               file.close();
+           }
+
         }
 
         mpLocalMapper->InsertKeyFrame(pKF);
@@ -1668,7 +1738,7 @@ namespace ORB_SLAM2
             std::vector<std::pair<float, int> > vWeightIdx;
             for (int i = 0; i < mCurrentFrame.N; ++i)
             {
-                EpipolarTriangle* pTri = mCurrentFrame.mvpTriangles[i];
+                EpipolarTriangle *pTri = mCurrentFrame.mvpTriangles[i];
                 if (pTri)
                 {
                     vWeightIdx.push_back(std::make_pair(pTri->mFusedUncertainty, i));
@@ -1730,7 +1800,7 @@ namespace ORB_SLAM2
                     }
 
                     if (nPoints > 100) // vDepthIdx[j].first > mThDepth &&
-                    break;
+                        break;
                 }
             }
 
@@ -1745,7 +1815,6 @@ namespace ORB_SLAM2
         mnLastKeyFrameId = mCurrentFrame.mnId;
         mpLastKeyFrame = pKF;
     }
-
 
 
 } //namespace ORB_SLAM

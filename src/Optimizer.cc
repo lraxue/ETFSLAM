@@ -748,7 +748,7 @@ namespace ORB_SLAM2
         }
 
         // Get Map Mutex
-//        unique_lock<mutex> lock(pMap->mMutexMapUpdate);
+        unique_lock<mutex> lock(pMap->mMutexMapUpdate);
 
         if (!vToErase.empty())
         {

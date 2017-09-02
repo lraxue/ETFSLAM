@@ -34,6 +34,9 @@ namespace ORB_SLAM2
     float Frame::mnMinX, Frame::mnMinY, Frame::mnMaxX, Frame::mnMaxY;
     float Frame::mfGridElementWidthInv, Frame::mfGridElementHeightInv;
 
+    float Frame::mDepthTheta, Frame::mSpatioTheta;
+    float Frame::alphaR, Frame::alphaD, Frame::alphaS;
+
     Frame::Frame()
     {}
 
@@ -46,6 +49,7 @@ namespace ORB_SLAM2
               mvKeysRight(frame.mvKeysRight), mvuRight(frame.mvuRight), mvMatches(frame.mvMatches), mvpTriangles(frame.mvpTriangles),
               mvDepth(frame.mvDepth), mBowVec(frame.mBowVec), mFeatVec(frame.mFeatVec),
               mDescriptorsLeft(frame.mDescriptorsLeft.clone()), mDescriptorsRight(frame.mDescriptorsRight.clone()),
+              mvDepthRatio(frame.mvDepthRatio), mvSpatioRatio(frame.mvSpatioRatio), mvResponseRatio(frame.mvResponseRatio), mvFusedUncertainty(frame.mvFusedUncertainty),
               mvpMapPoints(frame.mvpMapPoints), mvbOutlier(frame.mvbOutlier), mnId(frame.mnId),
               mpReferenceKF(frame.mpReferenceKF), mnScaleLevels(frame.mnScaleLevels),
               mfScaleFactor(frame.mfScaleFactor), mfLogScaleFactor(frame.mfLogScaleFactor),
@@ -121,6 +125,7 @@ namespace ORB_SLAM2
             mnMinY = 0.0f;
             mnMaxY = imLeft.rows;
 
+
             mfGridElementWidthInv = static_cast<float>(FRAME_GRID_COLS) / (mnMaxX - mnMinX);
             mfGridElementHeightInv = static_cast<float>(FRAME_GRID_ROWS) / (mnMaxY - mnMinY);
 
@@ -131,14 +136,22 @@ namespace ORB_SLAM2
             invfx = 1.0f / fx;
             invfy = 1.0f / fy;
 
+            mDepthTheta = mThDepth;
+            mSpatioTheta = sqrt(mnMaxX*mnMaxX + mnMaxY*mnMaxY) / 2.f;
+            alphaR = 1.0;
+            alphaD = 0;
+            alphaS = 0;
+
             mbInitialComputations = false;
+
         }
 
         mb = mbf / fx;
 
         AssignFeaturesToGrid();
 
-        GenerateAllEpipolarTriangles();
+        ComputeUncertainty();
+        // GenerateAllEpipolarTriangles();
     }
 
 
@@ -679,6 +692,55 @@ namespace ORB_SLAM2
         }
 
         return total_error / cnt;
+    }
+
+    void Frame::ComputeUncertainty()
+    {
+        mvResponseRatio.resize(N, -1.0f);
+        mvSpatioRatio.resize(N, -1.0f);
+        mvDepthRatio.resize(N, -1.0f);
+        mvFusedUncertainty.resize(N, -1.0f);
+
+//        fstream file("uncertainty.txt", ios::in | ios::app);
+//        if (!file.is_open())
+//        {
+//            LOG(ERROR) << "Open uncertainty file error.";
+//            exit(-1);
+//        }
+
+        for (int i = 0; i < N; ++i)
+        {
+            if (mvDepth[i] < 0)   // invalid point
+                continue;
+            if (mvDepth[i] > 1.5*mThDepth)
+                continue;
+
+            const int idxR = mvMatches[i];
+            // Depth uncertainty
+            mvDepthRatio[i] = mvDepth[i] / mDepthTheta;
+
+            // Response uncertainty
+            const float rl = mvKeysLeft[i].response / 255.f;
+            const float rr = mvKeysRight[idxR].response / 255.f;
+            mvResponseRatio[i] = (rl + rr) / 2.f;
+
+            // Spatial distribution
+            const float dlx = mvKeysLeft[i].pt.x - mnMaxX / 2.0f;
+            const float dly = mvKeysLeft[i].pt.y - mnMaxY / 2.0f;
+            const float drx = mvKeysRight[idxR].pt.x - mnMaxX / 2.f;
+            const float dry = mvKeysRight[idxR].pt.y - mnMaxY / 2.f;
+
+            const float dmean = (sqrt(dlx*dlx + dly*dly) + sqrt(drx*drx + dry*dry)) / 2.f;
+            mvSpatioRatio[i] = dmean / mSpatioTheta;
+
+            mvFusedUncertainty[i] = std::exp(alphaR*mvResponseRatio[i] - alphaD*mvDepthRatio[i] - alphaS*mvSpatioRatio[i]);
+
+//            LOG(INFO) << "Frame: " << mnId << " Key: " << i << " R: " << mvResponseRatio[i] << " S: " << mvSpatioRatio[i] << " D: " << mvDepthRatio[i] << " F: " << mvFusedUncertainty[i];
+
+//            file << mnId << " " << mvResponseRatio[i] << " " << mvSpatioRatio[i] << " " << mvDepthRatio[i] << " " << mvFusedUncertainty[i] << endl;
+        }
+
+//        file.close();
     }
 
 

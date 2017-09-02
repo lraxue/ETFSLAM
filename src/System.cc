@@ -99,11 +99,11 @@ namespace ORB_SLAM2
 
         //Initialize the Local Mapping thread and launch
         mpLocalMapper = new LocalMapping(mpMap, mSensor == MONOCULAR);
-//        mptLocalMapping = new thread(&ORB_SLAM2::LocalMapping::Run, mpLocalMapper);
+        mptLocalMapping = new thread(&ORB_SLAM2::LocalMapping::Run, mpLocalMapper);
 
         //Initialize the Loop Closing thread and launch
         mpLoopCloser = new LoopClosing(mpMap, mpKeyFrameDatabase, mpVocabulary, mSensor != MONOCULAR);
-//        mptLoopClosing = new thread(&ORB_SLAM2::LoopClosing::Run, mpLoopCloser);
+        mptLoopClosing = new thread(&ORB_SLAM2::LoopClosing::Run, mpLoopCloser);
 
         //Initialize the Viewer thread and launch
         if (bUseViewer)
@@ -310,6 +310,7 @@ namespace ORB_SLAM2
         list<ORB_SLAM2::KeyFrame *>::iterator lRit = mpTracker->mlpReferences.begin();
         list<double>::iterator lT = mpTracker->mlFrameTimes.begin();
         list<bool>::iterator lbL = mpTracker->mlbLost.begin();
+        int nF = 0;
         for (list<cv::Mat>::iterator lit = mpTracker->mlRelativeFramePoses.begin(),
                      lend = mpTracker->mlRelativeFramePoses.end(); lit != lend; lit++, lRit++, lT++, lbL++)
         {
@@ -335,8 +336,10 @@ namespace ORB_SLAM2
 
             vector<float> q = Converter::toQuaternion(Rwc);
 
-            f << setprecision(6) << *lT << " " << setprecision(9) << twc.at<float>(0) << " " << twc.at<float>(1) << " "
-              << twc.at<float>(2) << " " << q[0] << " " << q[1] << " " << q[2] << " " << q[3] << endl;
+            f << setprecision(6) << nF * 0.1 << " " << setprecision(9) << twc.at<float>(0) << " " << twc.at<float>(2)
+              << " " << twc.at<float>(1) << " " << q[0] << " " << q[1] << " " << q[2] << " " << q[3] << endl;
+
+            nF++;
         }
         f.close();
         cout << endl << "trajectory saved!" << endl;
@@ -460,11 +463,15 @@ namespace ORB_SLAM2
             const std::vector<cv::KeyPoint> &vKeysLeft = pKF->mvKeysLeft;
             const std::vector<float> &vDepth = pKF->mvDepth;
             const std::vector<MapPoint *> &vpMapPoints = pKF->mvpMapPoints;
+            const std::vector<float> vRUn = pKF->mvResponseRatio;
+            const std::vector<float> vSUn = pKF->mvSpatioRatio;
+            const std::vector<float> vDUn = pKF->mvDepthRatio;
+            const std::vector<float> vFUn = pKF->mvFusedUncertainty;
             const int N = pKF->N;
             for (int i = 0; i < N; ++i)
             {
-                file << vKeysLeft[i].pt.x << " " << vKeysLeft[i].pt.y << " " << vKeysLeft[i].octave << " "
-                     << vKeysLeft[i].response << " " << vDepth[i] << " ";
+                file << vKeysLeft[i].pt.x << " " << vKeysLeft[i].pt.y << " "
+                     << vRUn[i] << " " << vSUn[i] << " " << vDUn[i] << " " << vFUn[i] << " ";
 
                 MapPoint *pMP = vpMapPoints[i];
                 if (pMP && !pMP->isBad())

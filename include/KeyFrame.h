@@ -209,6 +209,12 @@ namespace ORB_SLAM2
         const cv::Mat mDescriptorsLeft, mDescriptorRight;
 
         const std::vector<EpipolarTriangle *> mvpTriangles;
+        std::vector<float> mvResponseRatio;
+        std::vector<float> mvSpatioRatio;
+        std::vector<float> mvDepthRatio;
+        std::vector<float> mvFusedUncertainty;
+        //--------------------------------------
+
 
         //BoW
         DBoW2::BowVector mBowVec;

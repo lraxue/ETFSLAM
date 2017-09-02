@@ -1,0 +1,17 @@
+## ETF-SLAM: Results on Kitti Dataset ###
+
+### 20170830
+#### prefabricated parameters 
+
+| parameters     | value                  |
+|:-----:         | :-----:                |
+| mDepthTheta    | mThDepth               |
+| mSpatioTheta   | sqrt(w*w + h*h)        |
+| mResponseTheta | 255                    |
+| condition      | w<0.8 && nPoint >100   |
+| weight in BA   | NO                     |
+
+||
+
+
+

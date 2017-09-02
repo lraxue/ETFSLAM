@@ -85,7 +85,6 @@ namespace ORB_SLAM2
 
     EpipolarTriangle::~EpipolarTriangle()
     {
-
     }
 
     float EpipolarTriangle::ComputeDistance(const cv::Mat &x3Dw)

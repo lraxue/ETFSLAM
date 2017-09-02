@@ -1666,7 +1666,7 @@ int ORBmatcher::SearchByProjection(Frame &CurrentFrame, const Frame &LastFrame, 
         }
 
 
-        LOG(INFO) << "Show matches here.";
+//        LOG(INFO) << "Show matches here.";
 
 //        // For debugging
 //        std::vector<cv::KeyPoint> vValidKeysLeft;
